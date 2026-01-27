@@ -7,7 +7,7 @@ class VerticalMiniCarousel extends StatefulWidget {
   final ScrollPhysics? physics;
 
   // Dışarıdan erişim için statik sabitler
-  static const double itemHeight = 40.0;
+  static const double itemHeight = 48.0;
   static const double totalHeight = itemHeight * 4;
 
   const VerticalMiniCarousel({

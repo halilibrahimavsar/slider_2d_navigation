@@ -92,7 +92,6 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
     if (renderBox == null) return;
 
     final position = renderBox.localToGlobal(Offset.zero);
-    final size = renderBox.size;
     final sliderValue = widget.controller.value;
 
     _overlayEntry = OverlayEntry(
@@ -100,7 +99,7 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
         type: MaterialType.transparency,
         child: MiniButtonsOverlay(
           position: position,
-          knobSize: size,
+          knobSize: Size(SliderConstants.knobWidth, SliderConstants.knobHeight),
           buttons: buttons,
           sliderValue: sliderValue,
           onButtonTap: (index) {
@@ -217,8 +216,8 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          height: SliderConstants.knobSize,
-          width: SliderConstants.knobSize,
+          height: SliderConstants.knobHeight,
+          width: SliderConstants.knobWidth,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             gradient: LinearGradient(
@@ -244,14 +243,15 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
               // 🟦 CAM / GLASS KNOB (SADECE ARKA PLAN)
               ClipRRect(
                 borderRadius:
-                    BorderRadius.circular(SliderConstants.knobSize / 2),
+                    BorderRadius.circular(SliderConstants.knobHeight / 2),
                 child: BackdropFilter(
                   filter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
                   child: Container(
-                    height: SliderConstants.knobSize,
-                    width: SliderConstants.knobSize,
+                    height: SliderConstants.knobHeight,
+                    width: SliderConstants.knobWidth,
                     decoration: BoxDecoration(
-                      shape: BoxShape.circle,
+                      borderRadius:
+                          BorderRadius.circular(SliderConstants.knobHeight / 2),
                       color: Colors.white.withValues(alpha: 0.2),
                       border: Border.all(
                         color: Colors.white.withValues(alpha: 0.3),
@@ -265,7 +265,7 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
               // 🟣 CAROUSEL — Knob'un içinde ortalanmış
               Positioned(
                 // Knob yüksekliğinden Carousel yüksekliğini çıkarıp 2'ye bölerek ortalıyoruz
-                top: (SliderConstants.knobSize -
+                top: (SliderConstants.knobHeight -
                         VerticalMiniCarousel.totalHeight) /
                     2,
                 height: VerticalMiniCarousel.totalHeight,
@@ -297,14 +297,20 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
                       physics: const NeverScrollableScrollPhysics(),
                       children: carouselItems.map((item) {
                         return Center(
-                          child: Text(
-                            item.label,
-                            textAlign: TextAlign.center,
-                            style: SliderConstants.knobLabelStyle.copyWith(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.5,
-                              color: Colors.white, // Maskeleme için baz renk
+                          child: Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 8.0),
+                            child: Text(
+                              item.label,
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: SliderConstants.knobLabelStyle.copyWith(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -0.6,
+                                color: Colors.white, // Maskeleme için baz renk
+                              ),
                             ),
                           ),
                         );
