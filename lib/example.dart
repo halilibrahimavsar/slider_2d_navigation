@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:slider_2d_navigation/widgets/vertical_mini_crousel.dart';
 import 'dynamic_slider.dart';
 
 void main() {
@@ -59,6 +60,12 @@ class _SliderDemoState extends State<SliderDemo> with TickerProviderStateMixin {
         padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
+            SizedBox(
+              height: 200,
+              width: 500,
+              child: VerticalMiniCarousel(
+                  children: [Text("Birikim"), Text("İşlemler"), Text("Borç")]),
+            ),
             const SizedBox(height: 50),
             DynamicSliderButton(
               controller: _controller,

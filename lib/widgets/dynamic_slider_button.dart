@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:slider_2d_navigation/widgets/vertical_mini_crousel.dart';
 import 'dart:ui' as ui;
 import '../models/slider_state.dart';
 import '../models/mini_button_data.dart';
@@ -7,7 +8,6 @@ import '../models/sub_menu_item.dart';
 import '../constants/slider_constants.dart';
 import '../utils/slider_state_helper.dart';
 import '../widgets/mini_buttons_overlay.dart';
-import '../widgets/sub_menu_tags.dart';
 import '../widgets/state_section.dart';
 
 class DynamicSliderButton extends StatefulWidget {
@@ -39,10 +39,12 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
   final GlobalKey _knobKey = GlobalKey();
   int? _selectedSubMenuIndex;
   SliderState? _lastState;
+  late FixedExtentScrollController _carouselController;
 
   @override
   void initState() {
     super.initState();
+    _carouselController = FixedExtentScrollController();
     _lastState = _getCurrentState(widget.controller.value);
     widget.controller.addListener(_handleControllerChange);
   }
@@ -50,6 +52,7 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
   @override
   void dispose() {
     _removeMiniButtons();
+    _carouselController.dispose();
     widget.controller.removeListener(_handleControllerChange);
     super.dispose();
   }
@@ -142,14 +145,19 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
     HapticFeedback.mediumImpact();
   }
 
-  Widget _buildKnob(double value, double knobLeft, Color activeColor) {
+  Widget _buildKnob(
+    double value,
+    double knobLeft,
+    Color activeColor,
+    List<SubMenuItem> subItems,
+  ) {
     final state = _getCurrentState(value);
-    final subItems = widget.subMenuItems[state] ?? [];
+    final items = widget.subMenuItems[state] ?? [];
 
     String knobLabel = _getStateLabel(state);
     if (_selectedSubMenuIndex != null &&
-        _selectedSubMenuIndex! < subItems.length) {
-      knobLabel = subItems[_selectedSubMenuIndex!].label.toUpperCase();
+        _selectedSubMenuIndex! < items.length) {
+      knobLabel = items[_selectedSubMenuIndex!].label.toUpperCase();
     }
 
     return Positioned(
@@ -159,7 +167,7 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
         key: _knobKey,
         onHorizontalDragStart: (_) => setState(() => _dragging = true),
         onHorizontalDragUpdate: (details) {
-          double newValue = (widget.controller.value +
+          final newValue = (widget.controller.value +
                   details.delta.dx / (_widgetWidth - SliderConstants.knobWidth))
               .clamp(0.0, 1.0);
           widget.controller.value = newValue;
@@ -168,9 +176,34 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
         onHorizontalDragEnd: (_) {
           setState(() => _dragging = false);
           final target = SliderStateHelper.getTargetValueForState(
-              state, SliderState.values.length);
+            state,
+            SliderState.values.length,
+          );
           _navigateToState(target);
           HapticFeedback.heavyImpact();
+        },
+        // DİKEY SÜRÜKLEME (SUB MENU KONTROLÜ)
+        onVerticalDragUpdate: (details) {
+          if (subItems.isEmpty) return;
+          // Parmağın tersine hareket etmesi doğal scroll hissidir
+          final double newOffset =
+              _carouselController.offset - details.delta.dy;
+          _carouselController.jumpTo(newOffset);
+        },
+        onVerticalDragEnd: (details) {
+          if (subItems.isEmpty) return;
+          // En yakın öğeye hizala (Snap)
+          final double itemHeight = VerticalMiniCarousel.itemHeight;
+          int targetIndex = (_carouselController.offset / itemHeight).round();
+
+          // Sınırları kontrol et
+          targetIndex = targetIndex.clamp(0, subItems.length - 1);
+
+          _carouselController.animateToItem(
+            targetIndex,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutBack,
+          );
         },
         onTap: () {
           _toggleMiniButtons();
@@ -199,15 +232,18 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
             ],
           ),
           child: Stack(
-            alignment: Alignment.center,
             clipBehavior: Clip.none,
+            alignment: Alignment.center,
             children: [
+              // 🟦 CAM / GLASS KNOB (SADECE ARKA PLAN)
               ClipRRect(
                 borderRadius:
                     BorderRadius.circular(SliderConstants.knobSize / 2),
                 child: BackdropFilter(
                   filter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
                   child: Container(
+                    height: SliderConstants.knobSize,
+                    width: SliderConstants.knobSize,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: Colors.white.withValues(alpha: 0.2),
@@ -219,6 +255,64 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
                   ),
                 ),
               ),
+
+              // 🟣 CAROUSEL — Knob'un içinde ortalanmış
+              Positioned(
+                // Knob yüksekliğinden Carousel yüksekliğini çıkarıp 2'ye bölerek ortalıyoruz
+                top: (SliderConstants.knobSize -
+                        VerticalMiniCarousel.totalHeight) /
+                    2,
+                height: VerticalMiniCarousel.totalHeight,
+                left: 0,
+                right: 0,
+                child: IgnorePointer(
+                  // Artık her zaman ignore ediyoruz çünkü kontrolü üstteki GestureDetector yapıyor
+                  ignoring: true,
+                  child: ShaderMask(
+                    shaderCallback: (rect) {
+                      return LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          activeColor, // Üst kısım (Dışarıda) - Renkli
+                          activeColor,
+                          Colors.white, // Orta kısım (Knob içi) - Beyaz
+                          Colors.white,
+                          activeColor,
+                          activeColor, // Alt kısım (Dışarıda) - Renkli
+                        ],
+                        // Geçiş noktaları: %40 ile %60 arası tam merkezdir
+                        stops: const [0.0, 0.35, 0.42, 0.58, 0.65, 1.0],
+                      ).createShader(rect);
+                    },
+                    blendMode: BlendMode.srcIn,
+                    child: VerticalMiniCarousel(
+                      controller: _carouselController,
+                      physics: const NeverScrollableScrollPhysics(),
+                      children: items.map((item) {
+                        return Center(
+                          child: Text(
+                            item.label,
+                            textAlign: TextAlign.center,
+                            style: SliderConstants.knobLabelStyle.copyWith(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.5,
+                              color: Colors.white, // Maskeleme için baz renk
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (index) {
+                        setState(() => _selectedSubMenuIndex = index);
+                        HapticFeedback.selectionClick();
+                      },
+                    ),
+                  ),
+                ),
+              ),
+
+              // ➕ PLUS ICON
               Positioned(
                 top: -12,
                 child: Container(
@@ -242,12 +336,10 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
                   ),
                 ),
               ),
+
+              // 🏷 LABEL
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 200),
-                transitionBuilder: (child, animation) => FadeTransition(
-                  opacity: animation,
-                  child: ScaleTransition(scale: animation, child: child),
-                ),
                 child: AnimatedDefaultTextStyle(
                   key: ValueKey(knobLabel),
                   duration: const Duration(milliseconds: 200),
@@ -285,6 +377,7 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [
+                    // Slider background
                     Positioned(
                       top: SliderConstants.trackPadding,
                       bottom: SliderConstants.trackPadding,
@@ -305,6 +398,7 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
                         ),
                       ),
                     ),
+                    // Slider headers
                     for (int i = 0; i < SliderState.values.length; i++)
                       Positioned(
                         left: i * sectionWidth,
@@ -332,28 +426,11 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
                       SliderConstants.trackPadding +
                           (value * (_widgetWidth - SliderConstants.knobWidth)),
                       activeColor,
+                      subItems,
                     ),
                   ],
                 ),
               ),
-              if (subItems.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                SubMenuTags(
-                  items: subItems,
-                  currentState: state,
-                  selectedIndex: _selectedSubMenuIndex,
-                  onTap: (index) {
-                    if (_selectedSubMenuIndex == index) {
-                      setState(() => _selectedSubMenuIndex = null);
-                      widget.onTap?.call(state);
-                    } else {
-                      setState(() => _selectedSubMenuIndex = index);
-                      subItems[index].onTap();
-                    }
-                    HapticFeedback.selectionClick();
-                  },
-                ),
-              ],
             ],
           );
         },
