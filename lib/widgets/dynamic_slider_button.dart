@@ -37,7 +37,6 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
   bool _showMiniButtons = false;
   OverlayEntry? _overlayEntry;
   final GlobalKey _knobKey = GlobalKey();
-  int? _selectedSubMenuIndex;
   SliderState? _lastState;
   late FixedExtentScrollController _carouselController;
 
@@ -66,7 +65,6 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
     if (_lastState != currentState) {
       HapticFeedback.heavyImpact();
       _lastState = currentState;
-      _selectedSubMenuIndex = null;
     }
   }
 
@@ -152,12 +150,20 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
     List<SubMenuItem> subItems,
   ) {
     final state = _getCurrentState(value);
-    final items = widget.subMenuItems[state] ?? [];
+    final rawSubItems = widget.subMenuItems[state] ?? [];
 
     String knobLabel = _getStateLabel(state);
-    if (_selectedSubMenuIndex != null &&
-        _selectedSubMenuIndex! < items.length) {
-      knobLabel = items[_selectedSubMenuIndex!].label.toUpperCase();
+
+    // Carousel listesini oluştur: Başlık + Alt Menü Öğeleri
+    List<SubMenuItem> carouselItems = [];
+    if (rawSubItems.isNotEmpty) {
+      carouselItems = [
+        SubMenuItem(
+            onTap: () {},
+            label: knobLabel,
+            icon: Icons.title), // Başlık öğesi (Index 0)
+        ...rawSubItems
+      ];
     }
 
     return Positioned(
@@ -184,20 +190,20 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
         },
         // DİKEY SÜRÜKLEME (SUB MENU KONTROLÜ)
         onVerticalDragUpdate: (details) {
-          if (subItems.isEmpty) return;
+          if (carouselItems.isEmpty) return;
           // Parmağın tersine hareket etmesi doğal scroll hissidir
           final double newOffset =
               _carouselController.offset - details.delta.dy;
           _carouselController.jumpTo(newOffset);
         },
         onVerticalDragEnd: (details) {
-          if (subItems.isEmpty) return;
+          if (carouselItems.isEmpty) return;
           // En yakın öğeye hizala (Snap)
           final double itemHeight = VerticalMiniCarousel.itemHeight;
           int targetIndex = (_carouselController.offset / itemHeight).round();
 
           // Sınırları kontrol et
-          targetIndex = targetIndex.clamp(0, subItems.length - 1);
+          targetIndex = targetIndex.clamp(0, carouselItems.length - 1);
 
           _carouselController.animateToItem(
             targetIndex,
@@ -289,7 +295,7 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
                     child: VerticalMiniCarousel(
                       controller: _carouselController,
                       physics: const NeverScrollableScrollPhysics(),
-                      children: items.map((item) {
+                      children: carouselItems.map((item) {
                         return Center(
                           child: Text(
                             item.label,
@@ -304,7 +310,6 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
                         );
                       }).toList(),
                       onChanged: (index) {
-                        setState(() => _selectedSubMenuIndex = index);
                         HapticFeedback.selectionClick();
                       },
                     ),
@@ -338,15 +343,23 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
               ),
 
               // 🏷 LABEL
-              AnimatedSwitcher(
+              // Eğer carousel doluysa (alt menü varsa), başlık zaten carousel içinde (Index 0) olacağı için
+              // buradaki sabit etiketi gizliyoruz. Sadece alt menü yoksa gösteriyoruz.
+              AnimatedOpacity(
                 duration: const Duration(milliseconds: 200),
-                child: AnimatedDefaultTextStyle(
-                  key: ValueKey(knobLabel),
-                  duration: const Duration(milliseconds: 200),
-                  style: SliderConstants.knobLabelStyle.copyWith(
-                    fontSize: _dragging ? 12 : 10,
+                opacity: carouselItems.isNotEmpty ? 0.0 : 1.0,
+                child: Center(
+                  child: AnimatedDefaultTextStyle(
+                    duration: const Duration(milliseconds: 200),
+                    style: SliderConstants.knobLabelStyle.copyWith(
+                      fontSize: _dragging ? 12 : 10,
+                      color: Colors.white,
+                      shadows: [
+                        Shadow(color: Colors.black26, blurRadius: 2),
+                      ],
+                    ),
+                    child: Text(knobLabel),
                   ),
-                  child: Text(knobLabel),
                 ),
               ),
             ],
@@ -409,7 +422,6 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
                           isActive: state == SliderState.values[i],
                           onTap: () {
                             if (state == SliderState.values[i]) {
-                              setState(() => _selectedSubMenuIndex = null);
                               widget.onTap?.call(SliderState.values[i]);
                             }
                             final target =

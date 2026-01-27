@@ -7,8 +7,8 @@ class VerticalMiniCarousel extends StatefulWidget {
   final ScrollPhysics? physics;
 
   // Dışarıdan erişim için statik sabitler
-  static const double itemHeight = 50.0;
-  static const double totalHeight = itemHeight * 5;
+  static const double itemHeight = 40.0;
+  static const double totalHeight = itemHeight * 4;
 
   const VerticalMiniCarousel({
     super.key,
@@ -46,7 +46,7 @@ class _VerticalMiniCarouselState extends State<VerticalMiniCarousel> {
       child: ListWheelScrollView.useDelegate(
         controller: _controller,
         itemExtent: VerticalMiniCarousel.itemHeight,
-        perspective: 0.005,
+        perspective: 0.009,
         diameterRatio: 1.5,
         physics: widget.physics ?? const FixedExtentScrollPhysics(),
         onSelectedItemChanged: widget.onChanged,
