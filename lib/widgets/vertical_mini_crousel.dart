@@ -5,6 +5,7 @@ class VerticalMiniCarousel extends StatefulWidget {
   final ValueChanged<int>? onChanged;
   final FixedExtentScrollController? controller;
   final ScrollPhysics? physics;
+  final ValueChanged<int>? onTap;
 
   // Dışarıdan erişim için statik sabitler
   static const double itemHeight = 48.0;
@@ -16,6 +17,7 @@ class VerticalMiniCarousel extends StatefulWidget {
     this.onChanged,
     this.controller,
     this.physics,
+    this.onTap,
   });
 
   @override
@@ -49,7 +51,10 @@ class _VerticalMiniCarouselState extends State<VerticalMiniCarousel> {
         perspective: 0.009,
         diameterRatio: 1.5,
         physics: widget.physics ?? const FixedExtentScrollPhysics(),
-        onSelectedItemChanged: widget.onChanged,
+        onSelectedItemChanged: (index) {
+          widget.onChanged?.call(index);
+          widget.onTap?.call(index);
+        },
         // Seçili olmayanları hafif silikleştir
         childDelegate: ListWheelChildBuilderDelegate(
           childCount: widget.children.length,
@@ -57,11 +62,16 @@ class _VerticalMiniCarouselState extends State<VerticalMiniCarousel> {
             return GestureDetector(
               onTap: () {
                 // Tıklanan öğeyi merkeze getir
-                _controller.animateToItem(
+                _controller
+                    .animateToItem(
                   index,
                   duration: const Duration(milliseconds: 300),
                   curve: Curves.easeInOut,
-                );
+                )
+                    .then((_) {
+                  // Animasyon bittikten sonra onTap callback'ini tetikle
+                  widget.onTap?.call(index);
+                });
               },
               child: Center(
                 child: SizedBox(

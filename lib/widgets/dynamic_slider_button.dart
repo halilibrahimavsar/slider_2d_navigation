@@ -65,6 +65,13 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
     if (_lastState != currentState) {
       HapticFeedback.heavyImpact();
       _lastState = currentState;
+
+      // State değiştiğinde carousel'ı ilk öğeye sıfırla
+      _carouselController.animateToItem(
+        0,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
     }
   }
 
@@ -295,6 +302,13 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
                     child: VerticalMiniCarousel(
                       controller: _carouselController,
                       physics: const NeverScrollableScrollPhysics(),
+                      onTap: (index) {
+                        // Başlık öğesi (Index 0) için ontap tetikleme
+                        if (index > 0 && index < carouselItems.length) {
+                          carouselItems[index].onTap();
+                          HapticFeedback.lightImpact();
+                        }
+                      },
                       children: carouselItems.map((item) {
                         return Center(
                           child: Padding(
