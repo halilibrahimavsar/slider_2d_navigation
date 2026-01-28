@@ -226,7 +226,7 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
           height: SliderConstants.knobHeight,
           width: SliderConstants.knobWidth,
           decoration: BoxDecoration(
-            shape: BoxShape.circle,
+            borderRadius: BorderRadius.circular(SliderConstants.knobHeight / 2),
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
