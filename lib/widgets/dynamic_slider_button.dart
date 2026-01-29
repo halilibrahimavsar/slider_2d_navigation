@@ -160,6 +160,24 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
 
     String knobLabel = _getStateLabel(state);
 
+    // Calculate transition opacity/scale based on distance from snap points
+    double contentOpacity = 1.0;
+    double contentScale = 1.0;
+
+    if (SliderState.values.length > 1) {
+      final double step = 1.0 / (SliderState.values.length - 1);
+      final int closestIndex = (value / step).round();
+      final double closestValue = closestIndex * step;
+      final double distance = (value - closestValue).abs();
+      final double maxDist = step / 2;
+
+      if (maxDist > 0) {
+        double t = 1.0 - (distance / maxDist).clamp(0.0, 1.0);
+        contentOpacity = Curves.bounceIn.transform(t);
+        contentScale = 0.5 + (0.5 * contentOpacity);
+      }
+    }
+
     // Carousel listesini oluştur: Başlık + Alt Menü Öğeleri
     List<SubMenuItem> carouselItems = [];
     if (rawSubItems.isNotEmpty) {
@@ -278,60 +296,68 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
                 height: VerticalMiniCarousel.totalHeight,
                 left: 0,
                 right: 0,
-                child: IgnorePointer(
-                  // Artık her zaman ignore ediyoruz çünkü kontrolü üstteki GestureDetector yapıyor
-                  ignoring: true,
-                  child: ShaderMask(
-                    shaderCallback: (rect) {
-                      return LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          activeColor, // Üst kısım (Dışarıda) - Renkli
-                          activeColor,
-                          Colors.white, // Orta kısım (Knob içi) - Beyaz
-                          Colors.white,
-                          activeColor,
-                          activeColor, // Alt kısım (Dışarıda) - Renkli
-                        ],
-                        // Geçiş noktaları: %40 ile %60 arası tam merkezdir
-                        stops: const [0.0, 0.35, 0.42, 0.58, 0.65, 1.0],
-                      ).createShader(rect);
-                    },
-                    blendMode: BlendMode.srcIn,
-                    child: VerticalMiniCarousel(
-                      controller: _carouselController,
-                      physics: const NeverScrollableScrollPhysics(),
-                      onTap: (index) {
-                        // Başlık öğesi (Index 0) için ontap tetikleme
-                        if (index > 0 && index < carouselItems.length) {
-                          carouselItems[index].onTap();
-                          HapticFeedback.lightImpact();
-                        }
-                      },
-                      children: carouselItems.map((item) {
-                        return Center(
-                          child: Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 8.0),
-                            child: Text(
-                              item.label,
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: SliderConstants.knobLabelStyle.copyWith(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: -0.6,
-                                color: Colors.white, // Maskeleme için baz renk
+                child: Opacity(
+                  opacity: contentOpacity,
+                  child: Transform.scale(
+                    scale: contentScale,
+                    child: IgnorePointer(
+                      // Artık her zaman ignore ediyoruz çünkü kontrolü üstteki GestureDetector yapıyor
+                      ignoring: true,
+                      child: ShaderMask(
+                        shaderCallback: (rect) {
+                          return LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              activeColor, // Üst kısım (Dışarıda) - Renkli
+                              activeColor,
+                              Colors.white, // Orta kısım (Knob içi) - Beyaz
+                              Colors.white,
+                              activeColor,
+                              activeColor, // Alt kısım (Dışarıda) - Renkli
+                            ],
+                            // Geçiş noktaları: %40 ile %60 arası tam merkezdir
+                            stops: const [0.0, 0.35, 0.42, 0.58, 0.65, 1.0],
+                          ).createShader(rect);
+                        },
+                        blendMode: BlendMode.srcIn,
+                        child: VerticalMiniCarousel(
+                          controller: _carouselController,
+                          physics: const NeverScrollableScrollPhysics(),
+                          onTap: (index) {
+                            // Başlık öğesi (Index 0) için ontap tetikleme
+                            if (index > 0 && index < carouselItems.length) {
+                              carouselItems[index].onTap();
+                              HapticFeedback.lightImpact();
+                            }
+                          },
+                          children: carouselItems.map((item) {
+                            return Center(
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 8.0),
+                                child: Text(
+                                  item.label,
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style:
+                                      SliderConstants.knobLabelStyle.copyWith(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: -0.6,
+                                    color:
+                                        Colors.white, // Maskeleme için baz renk
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: (index) {
-                        HapticFeedback.selectionClick();
-                      },
+                            );
+                          }).toList(),
+                          onChanged: (index) {
+                            HapticFeedback.selectionClick();
+                          },
+                        ),
+                      ),
                     ),
                   ),
                 ),
