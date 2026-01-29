@@ -39,6 +39,8 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
   final GlobalKey _knobKey = GlobalKey();
   SliderState? _lastState;
   late FixedExtentScrollController _carouselController;
+  bool _showUpArrow = false;
+  bool _showDownArrow = false;
 
   @override
   void initState() {
@@ -46,11 +48,19 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
     _carouselController = FixedExtentScrollController();
     _lastState = _getCurrentState(widget.controller.value);
     widget.controller.addListener(_handleControllerChange);
+    _carouselController.addListener(_updateVerticalArrowVisibility);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _updateVerticalArrowVisibility();
+      }
+    });
   }
 
   @override
   void dispose() {
     _removeMiniButtons();
+    _carouselController.removeListener(_updateVerticalArrowVisibility);
     _carouselController.dispose();
     widget.controller.removeListener(_handleControllerChange);
     super.dispose();
@@ -72,6 +82,51 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
       );
+      // Allow carousel to rebuild and update extents
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _updateVerticalArrowVisibility();
+        }
+      });
+    }
+  }
+
+  void _updateVerticalArrowVisibility() {
+    final state = _getCurrentState(widget.controller.value);
+    final rawSubItems = widget.subMenuItems[state] ?? [];
+    final bool hasSubItems = rawSubItems.isNotEmpty;
+
+    if (!hasSubItems) {
+      if (mounted && (_showUpArrow || _showDownArrow)) {
+        setState(() {
+          _showUpArrow = false;
+          _showDownArrow = false;
+        });
+      }
+      return;
+    }
+
+    if (!_carouselController.hasClients) {
+      if (mounted) {
+        setState(() {
+          _showUpArrow = false;
+          _showDownArrow = true;
+        });
+      }
+      return;
+    }
+
+    final position = _carouselController.position;
+    final bool canScrollUp = position.pixels > position.minScrollExtent + 0.1;
+    final bool canScrollDown = position.pixels < position.maxScrollExtent - 0.1;
+
+    if (mounted) {
+      if (_showUpArrow != canScrollUp || _showDownArrow != canScrollDown) {
+        setState(() {
+          _showUpArrow = canScrollUp;
+          _showDownArrow = canScrollDown;
+        });
+      }
     }
   }
 
@@ -163,6 +218,9 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
     // Calculate transition opacity/scale based on distance from snap points
     double contentOpacity = 1.0;
     double contentScale = 1.0;
+
+    final bool showLeftArrow = value > 0.01;
+    final bool showRightArrow = value < 0.99;
 
     if (SliderState.values.length > 1) {
       final double step = 1.0 / (SliderState.values.length - 1);
@@ -392,40 +450,56 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
               // Sol ok
               Positioned(
                 left: -14,
-                child: Icon(
-                  Icons.arrow_back_ios,
-                  color: activeColor.withValues(alpha: 0.6),
-                  size: 12,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 200),
+                  opacity: showLeftArrow ? 1.0 : 0.0,
+                  child: Icon(
+                    Icons.arrow_back_ios,
+                    color: activeColor.withValues(alpha: 0.6),
+                    size: 12,
+                  ),
                 ),
               ),
 
               // Sağ ok
               Positioned(
                 right: -14,
-                child: Icon(
-                  Icons.arrow_forward_ios,
-                  color: activeColor.withValues(alpha: 0.6),
-                  size: 12,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 200),
+                  opacity: showRightArrow ? 1.0 : 0.0,
+                  child: Icon(
+                    Icons.arrow_forward_ios,
+                    color: activeColor.withValues(alpha: 0.6),
+                    size: 12,
+                  ),
                 ),
               ),
 
               // Yukarı ok
               Positioned(
-                top: -14,
-                child: Icon(
-                  Icons.keyboard_arrow_up,
-                  color: activeColor.withValues(alpha: 0.6),
-                  size: 14,
+                top: -18,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 200),
+                  opacity: _showUpArrow ? 1.0 : 0.0,
+                  child: Icon(
+                    Icons.keyboard_arrow_up,
+                    color: activeColor.withValues(alpha: 0.6),
+                    size: 22,
+                  ),
                 ),
               ),
 
               // Aşağı ok
               Positioned(
-                bottom: -14,
-                child: Icon(
-                  Icons.keyboard_arrow_down,
-                  color: activeColor.withValues(alpha: 0.6),
-                  size: 14,
+                bottom: -16,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 200),
+                  opacity: _showDownArrow ? 1.0 : 0.0,
+                  child: Icon(
+                    Icons.keyboard_arrow_down,
+                    color: activeColor.withValues(alpha: 0.6),
+                    size: 22,
+                  ),
                 ),
               ),
 

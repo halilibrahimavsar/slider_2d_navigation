@@ -6,5 +6,4 @@ export 'constants/slider_constants.dart';
 export 'utils/slider_state_helper.dart';
 export 'widgets/dynamic_slider_button.dart';
 export 'widgets/mini_buttons_overlay.dart';
-export 'widgets/sub_menu_tags.dart';
 export 'widgets/state_section.dart';
