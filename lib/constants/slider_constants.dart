@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class SliderConstants {
   static const Duration animationDuration = Duration(milliseconds: 500);
   static const Curve animationCurve = Curves.easeOutBack;
-  static const double sliderHeight = 90.0;
+  static const double sliderHeight = 82.0;
   static const double knobHeight = 60.0;
   static const double knobPadding = 12.0;
   static const double knobWidth = 105.0;

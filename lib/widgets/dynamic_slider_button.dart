@@ -238,7 +238,7 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
             boxShadow: [
               BoxShadow(
                 color: activeColor.withValues(alpha: 0.6),
-                blurRadius: _dragging ? 30 : 20,
+                blurRadius: _dragging ? 20 : 10,
                 offset: const Offset(0, 6),
               ),
             ],
@@ -339,13 +339,13 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
 
               // ➕ PLUS ICON
               Positioned(
-                top: -12,
+                top: -2,
                 child: Container(
-                  width: 26,
-                  height: 26,
+                  width: 28,
+                  height: 20,
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.15),
@@ -359,6 +359,47 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
                     color: activeColor,
                     size: 20,
                   ),
+                ),
+              ),
+
+              // 🔥 DIRECTION ARROWS
+              // Sol ok
+              Positioned(
+                left: -14,
+                child: Icon(
+                  Icons.arrow_back_ios,
+                  color: activeColor.withValues(alpha: 0.6),
+                  size: 12,
+                ),
+              ),
+
+              // Sağ ok
+              Positioned(
+                right: -14,
+                child: Icon(
+                  Icons.arrow_forward_ios,
+                  color: activeColor.withValues(alpha: 0.6),
+                  size: 12,
+                ),
+              ),
+
+              // Yukarı ok
+              Positioned(
+                top: -14,
+                child: Icon(
+                  Icons.keyboard_arrow_up,
+                  color: activeColor.withValues(alpha: 0.6),
+                  size: 14,
+                ),
+              ),
+
+              // Aşağı ok
+              Positioned(
+                bottom: -14,
+                child: Icon(
+                  Icons.keyboard_arrow_down,
+                  color: activeColor.withValues(alpha: 0.6),
+                  size: 14,
                 ),
               ),
 
@@ -456,7 +497,8 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
                     _buildKnob(
                       value,
                       SliderConstants.trackPadding +
-                          (value * (_widgetWidth - SliderConstants.knobWidth)),
+                          (value * (_widgetWidth - SliderConstants.knobWidth)) -
+                          8,
                       activeColor,
                       subItems,
                     ),
