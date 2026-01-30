@@ -1,151 +1,104 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:slider_2d_navigation/widgets/vertical_mini_crousel.dart';
-import 'dart:ui' as ui;
-import '../models/slider_state.dart';
-import '../models/mini_button_data.dart';
-import '../models/sub_menu_item.dart';
-import '../constants/slider_constants.dart';
-import '../utils/slider_state_helper.dart';
+import '../models/slider_models.dart';
+import '../constants/slider_config.dart';
+import '../helpers/slider_state_helper.dart';
 import '../widgets/mini_buttons_overlay.dart';
-import '../widgets/state_section.dart';
+import '../widgets/slider_knob.dart';
 
-class DynamicSliderButton extends StatefulWidget {
+// ============================================================================
+// MAIN SLIDER WIDGET
+// ============================================================================
+
+class DynamicSlider extends StatefulWidget {
   final AnimationController controller;
   final ValueChanged<double>? onValueChanged;
-  final ValueChanged<SliderState>? onTap;
+  final ValueChanged<SliderState>? onStateTap;
   final Map<SliderState, List<MiniButtonData>> miniButtons;
   final Map<SliderState, List<SubMenuItem>> subMenuItems;
 
-  const DynamicSliderButton({
+  const DynamicSlider({
     super.key,
     required this.controller,
     this.onValueChanged,
-    this.onTap,
+    this.onStateTap,
     this.miniButtons = const {},
     this.subMenuItems = const {},
   });
 
   @override
-  State<DynamicSliderButton> createState() => _DynamicSliderButtonState();
+  State<DynamicSlider> createState() => _DynamicSliderState();
 }
 
-class _DynamicSliderButtonState extends State<DynamicSliderButton>
-    with TickerProviderStateMixin {
-  bool _dragging = false;
+class _DynamicSliderState extends State<DynamicSlider> {
+  bool _isDragging = false;
   double _widgetWidth = 0.0;
-  bool _showMiniButtons = false;
-  OverlayEntry? _overlayEntry;
-  final GlobalKey _knobKey = GlobalKey();
   SliderState? _lastState;
+
   late FixedExtentScrollController _carouselController;
   bool _showUpArrow = false;
   bool _showDownArrow = false;
+
+  // Mini buttons overlay state
+  bool _showMiniButtons = false;
+  OverlayEntry? _overlayEntry;
+  final GlobalKey _knobKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
     _carouselController = FixedExtentScrollController();
-    _lastState = _getCurrentState(widget.controller.value);
-    widget.controller.addListener(_handleControllerChange);
-    _carouselController.addListener(_updateVerticalArrowVisibility);
+    _lastState = _getCurrentState();
+    widget.controller.addListener(_onControllerChange);
+    _carouselController.addListener(_updateArrowVisibility);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _updateVerticalArrowVisibility();
-      }
+      if (mounted) _updateArrowVisibility();
     });
   }
 
   @override
   void dispose() {
     _removeMiniButtons();
-    _carouselController.removeListener(_updateVerticalArrowVisibility);
+    _carouselController.removeListener(_updateArrowVisibility);
     _carouselController.dispose();
-    widget.controller.removeListener(_handleControllerChange);
+    widget.controller.removeListener(_onControllerChange);
     super.dispose();
   }
 
-  void _handleControllerChange() {
-    if (_dragging && _showMiniButtons) {
+  SliderState _getCurrentState() {
+    return SliderStateHelper.getStateFromValue(
+      widget.controller.value,
+      SliderState.values.length,
+    );
+  }
+
+  void _onControllerChange() {
+    final currentState = _getCurrentState();
+
+    // Hide mini buttons when dragging
+    if (_isDragging && _showMiniButtons) {
       _hideMiniButtons();
     }
 
-    final currentState = _getCurrentState(widget.controller.value);
     if (_lastState != currentState) {
       HapticFeedback.heavyImpact();
       _lastState = currentState;
 
-      // State değiştiğinde carousel'ı ilk öğeye sıfırla
       _carouselController.animateToItem(
         0,
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
       );
-      // Allow carousel to rebuild and update extents
+
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _updateVerticalArrowVisibility();
-        }
+        if (mounted) _updateArrowVisibility();
       });
     }
   }
 
-  void _updateVerticalArrowVisibility() {
-    final state = _getCurrentState(widget.controller.value);
-    final rawSubItems = widget.subMenuItems[state] ?? [];
-    final bool hasSubItems = rawSubItems.isNotEmpty;
-
-    if (!hasSubItems) {
-      if (mounted && (_showUpArrow || _showDownArrow)) {
-        setState(() {
-          _showUpArrow = false;
-          _showDownArrow = false;
-        });
-      }
-      return;
-    }
-
-    if (!_carouselController.hasClients) {
-      if (mounted) {
-        setState(() {
-          _showUpArrow = false;
-          _showDownArrow = true;
-        });
-      }
-      return;
-    }
-
-    final position = _carouselController.position;
-    final bool canScrollUp = position.pixels > position.minScrollExtent + 0.1;
-    final bool canScrollDown = position.pixels < position.maxScrollExtent - 0.1;
-
-    if (mounted) {
-      if (_showUpArrow != canScrollUp || _showDownArrow != canScrollDown) {
-        setState(() {
-          _showUpArrow = canScrollUp;
-          _showDownArrow = canScrollDown;
-        });
-      }
-    }
-  }
-
-  SliderState _getCurrentState(double value) {
-    return SliderStateHelper.getStateFromValue(
-        value, SliderState.values.length);
-  }
-
-  Color _getActiveColor(double value) {
-    final state = _getCurrentState(value);
-    return SliderStateHelper.getStateColor(state);
-  }
-
-  String _getStateLabel(SliderState state) {
-    return SliderStateHelper.getStateLabel(state);
-  }
-
   void _showMiniButtonsOverlay() {
-    final state = _getCurrentState(widget.controller.value);
+    final state = _getCurrentState();
     final buttons = widget.miniButtons[state] ?? [];
     if (buttons.isEmpty) return;
 
@@ -161,7 +114,7 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
         type: MaterialType.transparency,
         child: MiniButtonsOverlay(
           position: position,
-          knobSize: Size(SliderConstants.knobWidth, SliderConstants.knobHeight),
+          knobSize: const Size(SliderConfig.knobWidth, SliderConfig.knobHeight),
           buttons: buttons,
           sliderValue: sliderValue,
           onButtonTap: (index) {
@@ -195,420 +148,252 @@ class _DynamicSliderButtonState extends State<DynamicSliderButton>
     }
   }
 
-  void _navigateToState(double target) {
+  void _updateArrowVisibility() {
+    final state = _getCurrentState();
+    final subItems = widget.subMenuItems[state] ?? [];
+
+    if (subItems.isEmpty) {
+      if (mounted && (_showUpArrow || _showDownArrow)) {
+        setState(() {
+          _showUpArrow = false;
+          _showDownArrow = false;
+        });
+      }
+      return;
+    }
+
+    if (!_carouselController.hasClients) {
+      if (mounted) {
+        setState(() {
+          _showUpArrow = false;
+          _showDownArrow = true;
+        });
+      }
+      return;
+    }
+
+    final position = _carouselController.position;
+    final canScrollUp = position.pixels > position.minScrollExtent + 0.1;
+    final canScrollDown = position.pixels < position.maxScrollExtent - 0.1;
+
+    if (mounted &&
+        (_showUpArrow != canScrollUp || _showDownArrow != canScrollDown)) {
+      setState(() {
+        _showUpArrow = canScrollUp;
+        _showDownArrow = canScrollDown;
+      });
+    }
+  }
+
+  double _calculateTransitionProgress(double value) {
+    if (SliderState.values.length <= 1) return 1.0;
+
+    final step = 1.0 / (SliderState.values.length - 1);
+    final closestIndex = (value / step).round();
+    final closestValue = closestIndex * step;
+    final distance = (value - closestValue).abs();
+    final maxDist = step / 2;
+
+    if (maxDist <= 0) return 1.0;
+
+    final t = 1.0 - (distance / maxDist).clamp(0.0, 1.0);
+    return Curves.easeOutCirc.transform(t);
+  }
+
+  void _navigateToState(SliderState state) {
+    final target =
+        SliderStateHelper.getTargetValue(state, SliderState.values.length);
     widget.controller.animateTo(
       target,
-      duration: SliderConstants.animationDuration,
-      curve: SliderConstants.animationCurve,
+      duration: SliderConfig.animationDuration,
+      curve: SliderConfig.animationCurve,
     );
     HapticFeedback.mediumImpact();
   }
 
-  Widget _buildKnob(
-    double value,
-    double knobLeft,
-    Color activeColor,
-    List<SubMenuItem> subItems,
-  ) {
-    final state = _getCurrentState(value);
-    final rawSubItems = widget.subMenuItems[state] ?? [];
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        _widgetWidth = constraints.maxWidth;
 
-    String knobLabel = _getStateLabel(state);
+        return AnimatedBuilder(
+          animation: widget.controller,
+          builder: (context, child) {
+            final value = widget.controller.value;
+            final state = _getCurrentState();
+            final activeColor = SliderStateHelper.getColorForState(state);
+            final subItems = widget.subMenuItems[state] ?? [];
+            final sectionWidth = _widgetWidth / SliderState.values.length;
+            final knobPosition = SliderConfig.trackPadding +
+                (value * (_widgetWidth - SliderConfig.knobWidth)) -
+                8;
+            final transitionProgress = _calculateTransitionProgress(value);
 
-    // Calculate transition opacity/scale based on distance from snap points
-    double contentOpacity = 1.0;
-    double contentScale = 1.0;
+            return SizedBox(
+              height: SliderConfig.sliderHeight,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // Track background
+                  _buildTrack(activeColor),
 
-    final bool showLeftArrow = value > 0.01;
-    final bool showRightArrow = value < 0.99;
-
-    if (SliderState.values.length > 1) {
-      final double step = 1.0 / (SliderState.values.length - 1);
-      final int closestIndex = (value / step).round();
-      final double closestValue = closestIndex * step;
-      final double distance = (value - closestValue).abs();
-      final double maxDist = step / 2;
-
-      if (maxDist > 0) {
-        double t = 1.0 - (distance / maxDist).clamp(0.0, 1.0);
-        contentOpacity = Curves.bounceIn.transform(t);
-        contentScale = 0.5 + (0.5 * contentOpacity);
-      }
-    }
-
-    // Carousel listesini oluştur: Başlık + Alt Menü Öğeleri
-    List<SubMenuItem> carouselItems = [];
-    if (rawSubItems.isNotEmpty) {
-      carouselItems = [
-        SubMenuItem(
-            onTap: () {},
-            label: knobLabel,
-            icon: Icons.title), // Başlık öğesi (Index 0)
-        ...rawSubItems
-      ];
-    }
-
-    return Positioned(
-      left: knobLeft,
-      top: SliderConstants.knobPadding,
-      child: GestureDetector(
-        key: _knobKey,
-        onHorizontalDragStart: (_) => setState(() => _dragging = true),
-        onHorizontalDragUpdate: (details) {
-          final newValue = (widget.controller.value +
-                  details.delta.dx / (_widgetWidth - SliderConstants.knobWidth))
-              .clamp(0.0, 1.0);
-          widget.controller.value = newValue;
-          widget.onValueChanged?.call(newValue);
-        },
-        onHorizontalDragEnd: (_) {
-          setState(() => _dragging = false);
-          final target = SliderStateHelper.getTargetValueForState(
-            state,
-            SliderState.values.length,
-          );
-          _navigateToState(target);
-          HapticFeedback.heavyImpact();
-        },
-        // DİKEY SÜRÜKLEME (SUB MENU KONTROLÜ)
-        onVerticalDragUpdate: (details) {
-          if (carouselItems.isEmpty) return;
-          // Parmağın tersine hareket etmesi doğal scroll hissidir
-          final double newOffset =
-              _carouselController.offset - details.delta.dy;
-          _carouselController.jumpTo(newOffset);
-        },
-        onVerticalDragEnd: (details) {
-          if (carouselItems.isEmpty) return;
-          // En yakın öğeye hizala (Snap)
-          final double itemHeight = VerticalMiniCarousel.itemHeight;
-          int targetIndex = (_carouselController.offset / itemHeight).round();
-
-          // Sınırları kontrol et
-          targetIndex = targetIndex.clamp(0, carouselItems.length - 1);
-
-          _carouselController.animateToItem(
-            targetIndex,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOutBack,
-          );
-        },
-        onTap: () {
-          _toggleMiniButtons();
-          widget.onTap?.call(state);
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          height: SliderConstants.knobHeight,
-          width: SliderConstants.knobWidth,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(SliderConstants.knobHeight / 2),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                activeColor,
-                activeColor.withValues(alpha: 0.8),
-              ],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: activeColor.withValues(alpha: 0.6),
-                blurRadius: _dragging ? 20 : 10,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.center,
-            children: [
-              // 🟦 CAM / GLASS KNOB (SADECE ARKA PLAN)
-              ClipRRect(
-                borderRadius:
-                    BorderRadius.circular(SliderConstants.knobHeight / 2),
-                child: BackdropFilter(
-                  filter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                  child: Container(
-                    height: SliderConstants.knobHeight,
-                    width: SliderConstants.knobWidth,
-                    decoration: BoxDecoration(
-                      borderRadius:
-                          BorderRadius.circular(SliderConstants.knobHeight / 2),
-                      color: Colors.white.withValues(alpha: 0.2),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.3),
-                        width: 1.5,
-                      ),
+                  // State sections
+                  for (int i = 0; i < SliderState.values.length; i++)
+                    _buildStateSection(
+                      SliderState.values[i],
+                      i * sectionWidth,
+                      sectionWidth,
+                      state == SliderState.values[i],
                     ),
-                  ),
-                ),
-              ),
 
-              // 🟣 CAROUSEL — Knob'un içinde ortalanmış
-              Positioned(
-                // Knob yüksekliğinden Carousel yüksekliğini çıkarıp 2'ye bölerek ortalıyoruz
-                top: (SliderConstants.knobHeight -
-                        VerticalMiniCarousel.totalHeight) /
-                    2,
-                height: VerticalMiniCarousel.totalHeight,
-                left: 0,
-                right: 0,
-                child: Opacity(
-                  opacity: contentOpacity,
-                  child: Transform.scale(
-                    scale: contentScale,
-                    child: IgnorePointer(
-                      // Artık her zaman ignore ediyoruz çünkü kontrolü üstteki GestureDetector yapıyor
-                      ignoring: true,
-                      child: ShaderMask(
-                        shaderCallback: (rect) {
-                          return LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              activeColor, // Üst kısım (Dışarıda) - Renkli
-                              activeColor,
-                              Colors.white, // Orta kısım (Knob içi) - Beyaz
-                              Colors.white,
-                              activeColor,
-                              activeColor, // Alt kısım (Dışarıda) - Renkli
-                            ],
-                            // Geçiş noktaları: %40 ile %60 arası tam merkezdir
-                            stops: const [0.0, 0.35, 0.42, 0.58, 0.65, 1.0],
-                          ).createShader(rect);
-                        },
-                        blendMode: BlendMode.srcIn,
-                        child: VerticalMiniCarousel(
-                          controller: _carouselController,
-                          physics: const NeverScrollableScrollPhysics(),
-                          onTap: (index) {
-                            // Başlık öğesi (Index 0) için ontap tetikleme
-                            if (index > 0 && index < carouselItems.length) {
-                              carouselItems[index].onTap();
-                              HapticFeedback.lightImpact();
+                  // Knob
+                  Positioned(
+                    left: knobPosition,
+                    top: SliderConfig.trackPadding,
+                    child: SliderKnob(
+                      knobKey: _knobKey,
+                      currentState: state,
+                      activeColor: activeColor,
+                      subMenuItems: subItems,
+                      carouselController: _carouselController,
+                      isDragging: _isDragging,
+                      transitionProgress: transitionProgress,
+                      showUpArrow: _showUpArrow,
+                      showDownArrow: _showDownArrow,
+                      onTap: () {
+                        _toggleMiniButtons();
+                        widget.onStateTap?.call(state);
+                      },
+                      onHorizontalDragStart: () =>
+                          setState(() => _isDragging = true),
+                      onHorizontalDrag: (details) {
+                        final newValue = (widget.controller.value +
+                                details.delta.dx /
+                                    (_widgetWidth - SliderConfig.knobWidth))
+                            .clamp(0.0, 1.0);
+                        widget.controller.value = newValue;
+                        widget.onValueChanged?.call(newValue);
+                      },
+                      onHorizontalDragEnd: () {
+                        setState(() => _isDragging = false);
+                        _navigateToState(state);
+                        HapticFeedback.heavyImpact();
+                      },
+                      onVerticalDrag: subItems.isNotEmpty
+                          ? (details) {
+                              final newOffset =
+                                  _carouselController.offset - details.delta.dy;
+                              _carouselController.jumpTo(newOffset);
                             }
-                          },
-                          children: carouselItems.map((item) {
-                            return Center(
-                              child: Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 8.0),
-                                child: Text(
-                                  item.label,
-                                  textAlign: TextAlign.center,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style:
-                                      SliderConstants.knobLabelStyle.copyWith(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: -0.6,
-                                    color:
-                                        Colors.white, // Maskeleme için baz renk
-                                  ),
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (index) {
-                            HapticFeedback.selectionClick();
-                          },
-                        ),
-                      ),
+                          : null,
+                      onVerticalDragEnd: subItems.isNotEmpty
+                          ? (details) {
+                              final itemHeight =
+                                  SliderConfig.carouselItemHeight;
+                              int targetIndex =
+                                  (_carouselController.offset / itemHeight)
+                                      .round();
+                              final carouselItems = [
+                                SubMenuItem(
+                                    icon: Icons.title,
+                                    label: SliderStateHelper.getLabelForState(
+                                        state),
+                                    onTap: () {}),
+                                ...subItems
+                              ];
+                              targetIndex = targetIndex.clamp(
+                                  0, carouselItems.length - 1);
+                              _carouselController.animateToItem(
+                                targetIndex,
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeOutBack,
+                              );
+                            }
+                          : null,
                     ),
                   ),
-                ),
+                ],
               ),
+            );
+          },
+        );
+      },
+    );
+  }
 
-              // ➕ PLUS ICON
-              Positioned(
-                top: -2,
-                child: Container(
-                  width: 28,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.15),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      )
-                    ],
-                  ),
-                  child: Icon(
-                    Icons.add,
-                    color: activeColor,
-                    size: 20,
-                  ),
-                ),
-              ),
-
-              // 🔥 DIRECTION ARROWS
-              // Sol ok
-              Positioned(
-                left: -14,
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 200),
-                  opacity: showLeftArrow ? 1.0 : 0.0,
-                  child: Icon(
-                    Icons.arrow_back_ios,
-                    color: activeColor.withValues(alpha: 0.6),
-                    size: 12,
-                  ),
-                ),
-              ),
-
-              // Sağ ok
-              Positioned(
-                right: -14,
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 200),
-                  opacity: showRightArrow ? 1.0 : 0.0,
-                  child: Icon(
-                    Icons.arrow_forward_ios,
-                    color: activeColor.withValues(alpha: 0.6),
-                    size: 12,
-                  ),
-                ),
-              ),
-
-              // Yukarı ok
-              Positioned(
-                top: -18,
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 200),
-                  opacity: _showUpArrow ? 1.0 : 0.0,
-                  child: Icon(
-                    Icons.keyboard_arrow_up,
-                    color: activeColor.withValues(alpha: 0.6),
-                    size: 22,
-                  ),
-                ),
-              ),
-
-              // Aşağı ok
-              Positioned(
-                bottom: -16,
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 200),
-                  opacity: _showDownArrow ? 1.0 : 0.0,
-                  child: Icon(
-                    Icons.keyboard_arrow_down,
-                    color: activeColor.withValues(alpha: 0.6),
-                    size: 22,
-                  ),
-                ),
-              ),
-
-              // 🏷 LABEL
-              // Eğer carousel doluysa (alt menü varsa), başlık zaten carousel içinde (Index 0) olacağı için
-              // buradaki sabit etiketi gizliyoruz. Sadece alt menü yoksa gösteriyoruz.
-              AnimatedOpacity(
-                duration: const Duration(milliseconds: 200),
-                opacity: carouselItems.isNotEmpty ? 0.0 : 1.0,
-                child: Center(
-                  child: AnimatedDefaultTextStyle(
-                    duration: const Duration(milliseconds: 200),
-                    style: SliderConstants.knobLabelStyle.copyWith(
-                      fontSize: _dragging ? 12 : 10,
-                      color: Colors.white,
-                      shadows: [
-                        Shadow(color: Colors.black26, blurRadius: 2),
-                      ],
-                    ),
-                    child: Text(knobLabel),
-                  ),
-                ),
-              ),
-            ],
-          ),
+  Widget _buildTrack(Color activeColor) {
+    return Positioned(
+      top: SliderConfig.trackPadding,
+      bottom: SliderConfig.trackPadding,
+      left: 0,
+      right: 0,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(SliderConfig.trackRadius),
+          color: activeColor.withValues(alpha: 0.08),
+          boxShadow: [
+            BoxShadow(
+              color: activeColor.withValues(alpha: 0.15),
+              blurRadius: 20,
+              spreadRadius: 2,
+            )
+          ],
         ),
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      _widgetWidth = constraints.maxWidth;
-      return AnimatedBuilder(
-        animation: widget.controller,
-        builder: (context, child) {
-          final value = widget.controller.value;
-          final state = _getCurrentState(value);
-          final activeColor = _getActiveColor(value);
-          final subItems = widget.subMenuItems[state] ?? [];
-          final sectionWidth = _widgetWidth / SliderState.values.length;
+  Widget _buildStateSection(
+    SliderState targetState,
+    double left,
+    double width,
+    bool isActive,
+  ) {
+    final label = SliderStateHelper.getLabelForState(targetState);
+    final icon = SliderStateHelper.getIconForState(targetState);
+    final color = SliderStateHelper.getColorForState(targetState);
 
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                height: SliderConstants.sliderHeight,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    // Slider background
-                    Positioned(
-                      top: SliderConstants.trackPadding,
-                      bottom: SliderConstants.trackPadding,
-                      left: 0,
-                      right: 0,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        decoration: BoxDecoration(
-                          borderRadius: SliderConstants.trackBorderRadius,
-                          color: activeColor.withValues(alpha: 0.08),
-                          boxShadow: [
-                            BoxShadow(
-                              color: activeColor.withValues(alpha: 0.15),
-                              blurRadius: 20,
-                              spreadRadius: 2,
-                            )
-                          ],
-                        ),
-                      ),
-                    ),
-                    // Slider headers
-                    for (int i = 0; i < SliderState.values.length; i++)
-                      Positioned(
-                        left: i * sectionWidth,
-                        top: 0,
-                        bottom: 0,
-                        child: StateSection(
-                          targetState: SliderState.values[i],
-                          isActive: state == SliderState.values[i],
-                          onTap: () {
-                            if (state == SliderState.values[i]) {
-                              widget.onTap?.call(SliderState.values[i]);
-                            }
-                            final target =
-                                SliderStateHelper.getTargetValueForState(
-                                    SliderState.values[i],
-                                    SliderState.values.length);
-                            _navigateToState(target);
-                          },
-                          sectionWidth: sectionWidth,
-                        ),
-                      ),
-                    _buildKnob(
-                      value,
-                      SliderConstants.trackPadding +
-                          (value * (_widgetWidth - SliderConstants.knobWidth)) -
-                          8,
-                      activeColor,
-                      subItems,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
+    return Positioned(
+      left: left,
+      top: 0,
+      bottom: 0,
+      child: GestureDetector(
+        onTap: () {
+          if (isActive) widget.onStateTap?.call(targetState);
+          _navigateToState(targetState);
         },
-      );
-    });
+        behavior: HitTestBehavior.translucent,
+        child: Container(
+          width: width,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 200),
+            opacity: isActive ? 0.0 : 1.0,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  color: isActive ? color : color.withValues(alpha: 0.9),
+                  size: isActive ? 24 : 20,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: isActive ? 13 : 12,
+                    fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                    color: isActive ? color : color.withValues(alpha: 0.4),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import '../models/slider_state.dart';
+import '../models/slider_models.dart';
 
 class SliderStateHelper {
   static SliderState getStateFromValue(double value, int totalStates) {
     final segmentSize = 1.0 / (totalStates - 1);
-    final index = (value / segmentSize).round();
-    return SliderState.values[index.clamp(0, totalStates - 1)];
+    final index = (value / segmentSize).round().clamp(0, totalStates - 1);
+    return SliderState.values[index];
   }
 
-  static Color getStateColor(SliderState state) {
+  static Color getColorForState(SliderState state) {
     switch (state) {
       case SliderState.savedMoney:
         return const Color(0xFF43A047);
@@ -19,7 +19,7 @@ class SliderStateHelper {
     }
   }
 
-  static String getStateLabel(SliderState state) {
+  static String getLabelForState(SliderState state) {
     switch (state) {
       case SliderState.savedMoney:
         return 'BİRİKİM';
@@ -30,7 +30,7 @@ class SliderStateHelper {
     }
   }
 
-  static IconData getStateIcon(SliderState state) {
+  static IconData getIconForState(SliderState state) {
     switch (state) {
       case SliderState.savedMoney:
         return Icons.savings_outlined;
@@ -41,7 +41,7 @@ class SliderStateHelper {
     }
   }
 
-  static double getTargetValueForState(SliderState state, int totalStates) {
+  static double getTargetValue(SliderState state, int totalStates) {
     final index = SliderState.values.indexOf(state);
     return index / (totalStates - 1);
   }

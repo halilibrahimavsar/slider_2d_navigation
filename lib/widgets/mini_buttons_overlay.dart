@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
-import 'dart:math' as math;
-import '../models/mini_button_data.dart';
-import '../constants/slider_constants.dart';
+import '../models/slider_models.dart';
+import '../constants/slider_config.dart';
 
 class MiniButtonsOverlay extends StatefulWidget {
   final Offset position;
@@ -35,7 +34,7 @@ class _MiniButtonsOverlayState extends State<MiniButtonsOverlay>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: SliderConstants.miniButtonAnimationDuration,
+      duration: const Duration(milliseconds: 400),
     );
     _controller.forward();
   }
@@ -54,28 +53,28 @@ class _MiniButtonsOverlayState extends State<MiniButtonsOverlay>
       child: Stack(
         children: [
           BackdropFilter(
-            filter: ui.ImageFilter.blur(
-              sigmaX: SliderConstants.overlayBlur,
-              sigmaY: SliderConstants.overlayBlur,
-            ),
+            filter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
             child: Container(
-              color: Colors.black
-                  .withValues(alpha: SliderConstants.overlayOpacity),
+              color: Colors.black.withValues(alpha: 0.2),
             ),
           ),
           ...List.generate(widget.buttons.length, (index) {
-            double baseAngle = math.pi / 2;
+            // Calculate button position in a fan/arc layout
+            double baseAngle = 3.14159 / 2; // Start at 90 degrees (top)
 
+            // Adjust angle based on slider position
             if (widget.sliderValue < 0.2) baseAngle -= 0.3;
             if (widget.sliderValue > 0.8) baseAngle += 0.3;
 
             double angle = baseAngle +
                 (index - (widget.buttons.length - 1) / 2) *
-                    SliderConstants.miniButtonSpread;
-            double distance = SliderConstants.miniButtonDistance;
+                    SliderConfig.miniButtonSpread;
+            double distance = SliderConfig.miniButtonDistance;
 
-            double offsetX = math.cos(angle) * distance;
-            double offsetY = -math.sin(angle) * distance;
+            double offsetX = distance * (angle - 3.14159 / 2).abs() < 0.1
+                ? 0
+                : distance * (angle > 3.14159 / 2 ? 1 : -1) * 0.7;
+            double offsetY = -distance * 0.7;
 
             return AnimatedBuilder(
               animation: _controller,
@@ -86,24 +85,24 @@ class _MiniButtonsOverlayState extends State<MiniButtonsOverlay>
                   left: widget.position.dx +
                       widget.knobSize.width / 2 +
                       (offsetX * curvedValue) -
-                      (SliderConstants.miniButtonContainerSize / 2),
+                      30,
                   top: widget.position.dy +
                       widget.knobSize.height / 2 +
                       (offsetY * curvedValue) -
-                      (SliderConstants.miniButtonContainerSize / 2),
+                      30,
                   child: Opacity(
                     opacity: _controller.value,
                     child: GestureDetector(
                       onTap: () => widget.onButtonTap(index),
                       child: SizedBox(
-                        width: SliderConstants.miniButtonContainerSize,
-                        height: SliderConstants.miniButtonContainerSize + 20,
+                        width: 70,
+                        height: 80,
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Container(
-                              width: SliderConstants.miniButtonSize,
-                              height: SliderConstants.miniButtonSize,
+                              width: SliderConfig.miniButtonSize,
+                              height: SliderConfig.miniButtonSize,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 gradient: LinearGradient(
