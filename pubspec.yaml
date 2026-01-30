@@ -1,7 +1,10 @@
 name: slider_2d_navigation
-description: A Flutter package for 2D slider navigation with horizontal and vertical cube animations
+description: A Flutter package for 2D slider navigation with horizontal and vertical cube animations. Features dynamic mini buttons, sub-menus, and smooth transitions.
 version: 1.0.0
-homepage: https://github.com/halilibrahimavsar/
+homepage: https://github.com/halilibrahimavsar/slider_2d_navigation
+repository: https://github.com/halilibrahimavsar/slider_2d_navigation
+issue_tracker: https://github.com/halilibrahimavsar/slider_2d_navigation/issues
+documentation: https://github.com/halilibrahimavsar/slider_2d_navigation
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

@@ -1,51 +1,42 @@
-# Dynamic Slider Button
+# Slider 2D Navigation
 
-Modüler ve dinamik bir slider button bileşeni. Sayfa sayısı artırılabilir veya azaltılabilir şekilde tasarlanmıştır.
+A Flutter package for 2D slider navigation with horizontal and vertical cube animations. Features dynamic mini buttons, sub-menus, and smooth transitions.
 
-## Özellikler
+## Features
 
-- ✅ Modüler yapı
-- ✅ Dinamik sayfa sayısı desteği
-- ✅ Mini buton overlay sistemi
-- ✅ Alt menü (tag) desteği
-- ✅ Haptic feedback
-- ✅ Smooth animasyonlar
-- ✅ Responsive tasarım
+- 🎯 **Horizontal Navigation**: Smooth sliding between different states
+- 📱 **Vertical Navigation**: Sub-menu carousel for each state
+- 🎨 **Dynamic Mini Buttons**: Context-sensitive action buttons
+- ✨ **Smooth Animations**: Cube-like transitions and haptic feedback
+- 🎭 **Customizable**: Colors, labels, and actions fully configurable
 
-## Proje Yapısı
+## Installation
 
-```
-lib/
-├── models/
-│   ├── slider_state.dart          # Slider durumları (enum)
-│   ├── mini_button_data.dart      # Mini buton veri modeli
-│   ├── sub_menu_item.dart        # Alt menü öğesi modeli
-│   └── slider_config.dart        # Slider konfigürasyonu
-├── constants/
-│   └── slider_constants.dart      # Sabit değerler
-├── utils/
-│   └── slider_state_helper.dart  # Durum yardımcı fonksiyonları
-├── widgets/
-│   ├── dynamic_slider_button.dart    # Ana slider bileşeni
-│   ├── mini_buttons_overlay.dart     # Mini buton overlay'i
-│   ├── sub_menu_tags.dart            # Alt menü tag'leri
-│   └── state_section.dart            # Durum bölümleri
-├── dynamic_slider.dart           # Ana export dosyası
-└── example.dart                   # Kullanım örneği
+Add this to your package's `pubspec.yaml` file:
+
+```yaml
+dependencies:
+  slider_2d_navigation: ^1.0.0
 ```
 
-## Kullanım
+Then import:
 
 ```dart
-import 'package:flutter/material.dart';
-import 'package:your_package/dynamic_slider.dart';
+import 'package:slider_2d_navigation/slider_2d_navigation.dart';
+```
 
-class MyWidget extends StatefulWidget {
+## Usage
+
+### Basic Usage
+
+```dart
+class MySliderPage extends StatefulWidget {
   @override
-  _MyWidgetState createState() => _MyWidgetState();
+  _MySliderPageState createState() => _MySliderPageState();
 }
 
-class _MyWidgetState extends State<MyWidget> with TickerProviderStateMixin {
+class _MySliderPageState extends State<MySliderPage>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   @override
@@ -58,52 +49,138 @@ class _MyWidgetState extends State<MyWidget> with TickerProviderStateMixin {
   }
 
   @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return DynamicSliderButton(
-      controller: _controller,
-      onValueChanged: (value) => print('Value: $value'),
-      onTap: (state) => print('State: $state'),
-      miniButtons: {
-        SliderState.savedMoney: [
-          MiniButtonData(
-            icon: Icons.add,
-            label: 'Ekle',
-            color: Colors.green,
-            onTap: () => print('Eklendi'),
-          ),
-        ],
-      },
-      subMenuItems: {
-        SliderState.savedMoney: [
-          SubMenuItem(
-            icon: Icons.account_balance,
-            label: 'Banka',
-            onTap: () => print('Banka'),
-          ),
-        ],
-      },
+    return Scaffold(
+      body: DynamicSlider(
+        controller: _controller,
+        onValueChanged: (value) => print('Value: $value'),
+        onStateTap: (state) => print('Tapped: $state'),
+        miniButtons: _getMiniButtons(),
+        subMenuItems: _getSubMenuItems(),
+      ),
     );
   }
 }
 ```
 
-## Yeni Durum Ekleme
-
-SliderState enum'ına yeni durumlar ekleyerek slider'ı genişletebilirsiniz:
+### Defining Mini Buttons
 
 ```dart
-enum SliderState {
-  savedMoney,
-  transactions,
-  debt,
-  investments,  // Yeni durum
-  settings,     // Yeni durum
+Map<SliderState, List<MiniButtonData>> _getMiniButtons() {
+  return {
+    SliderState.savedMoney: [
+      MiniButtonData(
+        icon: Icons.add,
+        label: 'Ekle',
+        color: Colors.green,
+        onTap: () => print('Birikim eklendi'),
+      ),
+      MiniButtonData(
+        icon: Icons.remove,
+        label: 'Çıkar',
+        color: Colors.red,
+        onTap: () => print('Birikim çıkarıldı'),
+      ),
+    ],
+    SliderState.transactions: [
+      MiniButtonData(
+        icon: Icons.send,
+        label: 'Gönder',
+        color: Colors.blue,
+        onTap: () => print('İşlem gönderildi'),
+      ),
+    ],
+  };
 }
 ```
 
-## Özelleştirme
+### Defining Sub-Menu Items
 
-- Renkler: `SliderStateHelper.getStateColor()` üzerinden
-- İkonlar: `SliderStateHelper.getStateIcon()` üzerinden
-- Label'lar: `SliderStateHelper.getStateLabel()` üzerinden
-- Animasyonlar: `SliderConstants` üzerinden özelleştirilebilir
+```dart
+Map<SliderState, List<SubMenuItem>> _getSubMenuItems() {
+  return {
+    SliderState.savedMoney: [
+      SubMenuItem(
+        icon: Icons.account_balance,
+        label: 'Banka',
+        onTap: () => print('Banka seçildi'),
+      ),
+      SubMenuItem(
+        icon: Icons.home,
+        label: 'Ev',
+        onTap: () => print('Ev seçildi'),
+      ),
+    ],
+    SliderState.transactions: [
+      SubMenuItem(
+        icon: Icons.history,
+        label: 'Geçmiş',
+        onTap: () => print('Geçmiş seçildi'),
+      ),
+    ],
+  };
+}
+```
+
+### Programmatic Navigation
+
+```dart
+// Navigate to specific state
+_controller.animateTo(0.0); // savedMoney
+_controller.animateTo(0.5); // transactions  
+_controller.animateTo(1.0); // debt
+
+// Or use the helper
+final target = SliderStateHelper.getTargetValue(SliderState.transactions, 3);
+_controller.animateTo(target);
+```
+
+## Customization
+
+### Slider States
+
+The package comes with three predefined states:
+
+- `SliderState.savedMoney` - For savings/money-related actions
+- `SliderState.transactions` - For transaction-related actions  
+- `SliderState.debt` - For debt-related actions
+
+Each state has associated colors, icons, and labels that you can customize through the `SliderStateHelper`.
+
+### Animations
+
+Control the animation behavior through your `AnimationController`:
+
+```dart
+_controller = AnimationController(
+  vsync: this,
+  duration: const Duration(milliseconds: 500), // Adjust duration
+);
+```
+
+### Styling
+
+The slider uses the `SliderConfig` class for styling constants:
+
+- `SliderConfig.knobWidth/Height` - Size of the main knob
+- `SliderConfig.trackPadding` - Padding around the track
+- `SliderConfig.animationDuration` - Default animation duration
+- `SliderConfig.animationCurve` - Default animation curve
+
+## Example
+
+For a complete example, see the `example.dart` file in the package.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
